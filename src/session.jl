@@ -5,6 +5,8 @@ export process_code, process_code_with_module, SessionState, save_state, load_st
 using Serialization
 using Spec
 
+using ..BasisCommon: tee_capture
+
 struct SessionState
     variables::Dict{Symbol, Any}
     definitions::Dict{Symbol, Expr}
@@ -117,6 +119,17 @@ function process_code_with_module(code::String, state::SessionState, mod::Module
     end
     
     return result, state
+end
+
+"""
+    process_code_with_module_tee(code::AbstractString, state::SessionState, mod::Module)
+
+Process and evaluate a code snippet within the given module, returning the result and the
+updated session state, and the stdout captured during execution.
+"""
+function process_code_with_module_tee(code::AbstractString, state::SessionState, mod::Module)
+    f() = Session.process_code_with_module(code, state, mod)
+    tee_capture(f)
 end
 
 @pre process_code_with_module(code::String, state::SessionState, mod::Module) = length(code) > 0 "code must be non-empty"
