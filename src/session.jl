@@ -103,20 +103,20 @@ function process_code_with_module(code::String, state::SessionState, mod::Module
     transformed_code = transform_to_block(code)
     expr = parse_code(transformed_code)
     validate_expression(expr)
-    
     apply_session_state(mod, state)
+    @show expr
     result = Core.eval(mod, expr)
     
-    for stmt in expr.args
-        if stmt isa Expr && stmt.head == :(=)
-            var_name = stmt.args[1]
-            var_value = Core.eval(mod, var_name)
-            store_variable!(state, var_name, var_value)
-        elseif stmt isa Expr && (stmt.head == :function || stmt.head == :struct)
-            func_name = stmt.head == :function ? stmt.args[1].args[1] : stmt.args[1]
-            define_new_definition!(state, func_name, stmt)
-        end
-    end
+    # for stmt in expr.args
+    #     if stmt isa Expr && stmt.head == :(=)
+    #         var_name = stmt.args[1]
+    #         var_value = Core.eval(mod, var_name)
+    #         store_variable!(state, var_name, var_value)
+    #     elseif stmt isa Expr && (stmt.head == :function || stmt.head == :struct)
+    #         func_name = stmt.head == :function ? stmt.args[1].args[1] : stmt.args[1]
+    #         define_new_definition!(state, func_name, stmt)
+    #     end
+    # end
     
     return result, state
 end
