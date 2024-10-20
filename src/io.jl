@@ -3,12 +3,16 @@
 
 export tee_capture
 
+struct CapturedError{E}
+    error::E
+    stdout::String
+end
+
 """
     tee_capture(f)
 
 Evaluates `f()` and captures the output that would have been printed to the console.
 This is useful when you want to capture the output of a function that prints to the console.
-It also prints the output to the console as it is captured.
 The captured output is returned as a string, along with the result of `f()`.
 
 # Examples
@@ -34,7 +38,7 @@ println(captured_output)
 println("\\nFunction return value: \$result")
 ```
 """
-function tee_capture(func)
+function tee_capture(func; capture_on_error = true)
     old_stdout = stdout
     rd, wr = redirect_stdout()
     output_buffer = IOBuffer()
@@ -51,19 +55,32 @@ function tee_capture(func)
         end
     end
 
-    result = nothing
+    cleanedup = false
     captured_output = ""
 
-    try
+    result = try
         result = func()
     catch e
         @error "Error in captured function" exception=(e, catch_backtrace())
-        rethrow(e)
+        if capture_on_error
+            # Still capture the output
+            redirect_stdout(old_stdout)
+            close(wr)
+            wait(tee_task)
+            captured_output = String(take!(output_buffer))
+            cleanedup = true
+            throw(CapturedError(e, captured_output))
+        else
+            rethrow(e)
+        end
     finally
-        redirect_stdout(old_stdout)
-        close(wr)
-        wait(tee_task)
-        captured_output = String(take!(output_buffer))
+        # @show "wrapping up"
+        if !cleanedup
+            redirect_stdout(old_stdout)
+            close(wr)
+            wait(tee_task)
+            captured_output = String(take!(output_buffer))
+        end
     end
 
     return (result = result, stdout = captured_output)

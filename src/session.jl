@@ -104,7 +104,6 @@ function process_code_with_module(code::String, state::SessionState, mod::Module
     expr = parse_code(transformed_code)
     validate_expression(expr)
     apply_session_state(mod, state)
-    @show expr
     result = Core.eval(mod, expr)
     
     # for stmt in expr.args
