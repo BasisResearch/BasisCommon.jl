@@ -3,9 +3,28 @@
 
 export tee_capture
 
+const BackTrace =  Vector{Union{Ptr{Nothing}, Base.InterpreterIP}}
+
+"""
+    CapturedError{E}
+
+A struct that captures an error and the output that was printed to the console at the time of the error.
+"""
 struct CapturedError{E}
     error::E
     stdout::String
+    bt::BackTrace
+end
+
+function Base.showerror(io::IO, e::CapturedError)
+    println(io, "CapturedError: ")
+    showerror(io, e.error, e.bt)
+    if !isempty(e.stdout)
+        println(io, "\nCaptured the following output from stdout before the error occurred:")
+        println(io, e.stdout)
+    else
+        println(io, "\nNo stdout output was captured before the error occurred.")
+    end
 end
 
 """
@@ -69,7 +88,8 @@ function tee_capture(func; capture_on_error = true)
             wait(tee_task)
             captured_output = String(take!(output_buffer))
             cleanedup = true
-            throw(CapturedError(e, captured_output))
+            bt = catch_backtrace()
+            throw(CapturedError(e, captured_output, bt))
         else
             rethrow(e)
         end

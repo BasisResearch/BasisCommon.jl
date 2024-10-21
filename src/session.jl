@@ -15,7 +15,7 @@ end
 
 empty_sessionstate() = SessionState(Dict{Symbol, Any}(), Dict{Symbol, Expr}())
 
-parse_code(code::String) = Meta.parse(code)
+parse_code(code::String) = Meta.parseall(code)
 @pre parse_code(code::String) = length(code) > 0 "code must be non-empty"
 @post parse_code(code::String) = isa(__ret__, Expr) "return must be a valid Julia expression"
 
@@ -24,9 +24,9 @@ transform_to_block(code::String) = "begin\n$code\nend"
 @post transform_to_block(code::String) = startswith(__ret__, "begin") && endswith(__ret__, "end") "result must be wrapped in begin and end"
 
 function validate_expression(expr::Expr)
-    if expr.head != :block
-        error("Only block expressions are allowed, but you have a $(expr.head) expression")
-    elseif occursin(r"include\(", string(expr))
+    # if expr.head != :block
+    #     error("Only block expressions are allowed, but you have a $(expr.head) expression")
+    if occursin(r"include\(", string(expr))
         error("Use of include is not allowed")
     elseif occursin(r"eval\(", string(expr))
         error("Use of eval is not allowed")
@@ -99,9 +99,11 @@ result, updated_state = process_code_with_module(code, state, mod)
 println(result)  # Output: 5
 ```
 """
-function process_code_with_module(code::String, state::SessionState, mod::Module)
-    transformed_code = transform_to_block(code)
-    expr = parse_code(transformed_code)
+function process_code_with_module(code::String, state::SessionState, mod::Module; filename="none")
+    # transformed_code = transform_to_block(code)
+    # transformed_code = code
+    # expr = parse_code(transformed_code)
+    expr = Meta.parseall(code; filename=filename)
     validate_expression(expr)
     apply_session_state(mod, state)
     result = Core.eval(mod, expr)
@@ -123,11 +125,11 @@ end
 """
     process_code_with_module_tee(code::AbstractString, state::SessionState, mod::Module)
 
-Process and evaluate a code snippet within the given module, returning the result and the
+Process and evaluate a code snippet within the∏π given module, returning the result and the
 updated session state, and the stdout captured during execution.
 """
-function process_code_with_module_tee(code::AbstractString, state::SessionState, mod::Module)
-    f() = Session.process_code_with_module(code, state, mod)
+function process_code_with_module_tee(code::AbstractString, state::SessionState, mod::Module; filename="none")
+    f() = Session.process_code_with_module(code, state, mod; filename=filename)
     tee_capture(f)
 end
 
