@@ -28,6 +28,31 @@ function Base.showerror(io::IO, e::CapturedError)
 end
 
 """
+    reprerror(e::Exception)
+
+Return a string representation of an exception, as shown by `showerror`.
+
+# Examples
+
+```julia
+g() = rand() > 0.5 ? error("An error occurred") : 42
+function f()
+    for i = 1:100
+        result = g()
+        @show result
+    end
+end
+e = try
+    f()
+catch e
+    e
+end
+reprerror(e)
+```
+"""
+reprerror(e::Exception) = sprint(showerror, e)
+
+"""
     tee_capture(f)
 
 Evaluates `f()` and captures the output that would have been printed to the console.
