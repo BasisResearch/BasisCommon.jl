@@ -8,12 +8,12 @@ using Spec
 using ..BasisCommon: tee_capture
 
 struct SessionState{T}
-    variables::Dict{Symbol, Any}
-    definitions::Dict{Symbol, T}
+    variables::Dict{Symbol,Any}
+    definitions::Dict{Symbol,T}
 end
 # @post SessionState(variables::Dict{Symbol, Any}, definitions::Dict{Symbol, Expr}) = __ret__.variables == variables && __ret__.definitions == definitions "SessionState must store the provided variables and definitions"
 
-empty_sessionstate() = SessionState(Dict{Symbol, Any}(), Dict{Symbol, Any}())
+empty_sessionstate() = SessionState(Dict{Symbol,Any}(), Dict{Symbol,Any}())
 
 parse_code(code::String) = Meta.parseall(code)
 @pre parse_code(code::String) = length(code) > 0 "code must be non-empty"
@@ -68,7 +68,6 @@ function apply_session_state(mod::Module, state::SessionState)
         Core.eval(mod, expr)
     end
 end
-
 @post apply_session_state(mod::Module, state::SessionState) = all((isdefined(mod, name) for name in keys(state.variables))) "all variables in the state must be defined in the module"
 
 function result_to_string(result::Any)
@@ -100,26 +99,18 @@ println(result)  # Output: 5
 ```
 """
 function process_code_with_module(code::String, state::SessionState, mod::Module; filename="none")
-    # transformed_code = transform_to_block(code)
-    # transformed_code = code
-    # expr = parse_code(transformed_code)
     expr = Meta.parseall(code; filename=filename)
-    # @show expr
-    # @assert false
-    # expr = Meta.parseall(code)
     validate_expression(expr)
     # apply_session_state(mod, state)
     result = Core.eval(mod, expr)
 
     for var in names(mod, all=true, imported=false)
         if getproperty(mod, var) isa Function || getproperty(mod, var) isa DataType
-            println(var, "\n", join(methods(getproperty(mod, var)), "\n"))
             state.definitions[var] = methods(getproperty(mod, var))
         else
             store_variable!(state, var, getproperty(mod, var))
         end
     end
-    
     return result, state
 end
 
