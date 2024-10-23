@@ -7,13 +7,13 @@ using Spec
 
 using ..BasisCommon: tee_capture
 
-struct SessionState
+struct SessionState{T}
     variables::Dict{Symbol, Any}
-    definitions::Dict{Symbol, Expr}
+    definitions::Dict{Symbol, T}
 end
-@post SessionState(variables::Dict{Symbol, Any}, definitions::Dict{Symbol, Expr}) = __ret__.variables == variables && __ret__.definitions == definitions "SessionState must store the provided variables and definitions"
+# @post SessionState(variables::Dict{Symbol, Any}, definitions::Dict{Symbol, Expr}) = __ret__.variables == variables && __ret__.definitions == definitions "SessionState must store the provided variables and definitions"
 
-empty_sessionstate() = SessionState(Dict{Symbol, Any}(), Dict{Symbol, Expr}())
+empty_sessionstate() = SessionState(Dict{Symbol, Any}(), Dict{Symbol, Any}())
 
 parse_code(code::String) = Meta.parseall(code)
 @pre parse_code(code::String) = length(code) > 0 "code must be non-empty"
@@ -104,20 +104,21 @@ function process_code_with_module(code::String, state::SessionState, mod::Module
     # transformed_code = code
     # expr = parse_code(transformed_code)
     expr = Meta.parseall(code; filename=filename)
+    # @show expr
+    # @assert false
+    # expr = Meta.parseall(code)
     validate_expression(expr)
-    apply_session_state(mod, state)
+    # apply_session_state(mod, state)
     result = Core.eval(mod, expr)
-    
-    # for stmt in expr.args
-    #     if stmt isa Expr && stmt.head == :(=)
-    #         var_name = stmt.args[1]
-    #         var_value = Core.eval(mod, var_name)
-    #         store_variable!(state, var_name, var_value)
-    #     elseif stmt isa Expr && (stmt.head == :function || stmt.head == :struct)
-    #         func_name = stmt.head == :function ? stmt.args[1].args[1] : stmt.args[1]
-    #         define_new_definition!(state, func_name, stmt)
-    #     end
-    # end
+
+    for var in names(mod, all=true, imported=false)
+        if getproperty(mod, var) isa Function || getproperty(mod, var) isa DataType
+            println(var, "\n", join(methods(getproperty(mod, var)), "\n"))
+            state.definitions[var] = methods(getproperty(mod, var))
+        else
+            store_variable!(state, var, getproperty(mod, var))
+        end
+    end
     
     return result, state
 end
