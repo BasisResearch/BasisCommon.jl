@@ -10,7 +10,7 @@ const BackTrace =  Vector{Union{Ptr{Nothing}, Base.InterpreterIP}}
 
 A struct that captures an error and the output that was printed to the console at the time of the error.
 """
-struct CapturedError{E}
+struct CapturedError{E <: Exception} <: Exception
     error::E
     stdout::String
     bt::BackTrace
@@ -26,6 +26,8 @@ function Base.showerror(io::IO, e::CapturedError)
         println(io, "\nNo stdout output was captured before the error occurred.")
     end
 end
+
+Base.show(io::IO, e::CapturedError) = showerror(io, e)
 
 """
     reprerror(e::Exception)
