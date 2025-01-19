@@ -13,17 +13,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        version:
-          - '1.6'
-          - '1.7'
-          - '1.8'
-          - 'nightly'
-        os:
-          - ubuntu-latest
-          - macOS-latest
-          - windows-latest
-        arch:
-          - x64
+        # LTS (v1.10.7), latest stable, nightly
+        version: [ '1.10.7', 'latest', 'nightly' ]
+        os: [ 'ubuntu-latest', 'macOS-latest', 'windows-latest' ]
+        arch: [ 'x64' ]
 
     steps:
       - name: Checkout repository
@@ -41,22 +34,8 @@ jobs:
       - name: Build Julia package
         uses: julia-actions/julia-buildpkg@v1
         with:
-          project: BasisCommon
-
-      - name: Clone BasisCommon using GitHub CLI
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh repo clone git@github.com:BasisResearch/BasisCommon.jl.git
-        shell: bash
-
-      - name: Develop BasisCommon
-        run: |
-          julia --project -e '
-            using Pkg;
-            Pkg.develop(path="./BasisCommon.jl");
-            Pkg.update()'
-        shell: bash
+          # If your package root has the Project.toml, set this to "."
+          project: .
 
       - name: Run tests
         uses: julia-actions/julia-runtest@v1
