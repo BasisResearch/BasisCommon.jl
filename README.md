@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/BasisResearch/BasisCommon/workflows/CI/badge.svg)](https://github.com/BasisResearch/BasisCommon/actions/workflows/ci.yml)
 
-[![CI](https://github.com/<owner>/<repo>/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/<owner>/<repo>/actions/workflows/ci.yml)
+
 
 BasisCommon is a collection of modules providing essential functionality such as session management, 
 HTTP request handling, cost estimation, external variable retrieval, and other utilities 
