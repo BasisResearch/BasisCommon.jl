@@ -1,0 +1,6 @@
+name = "BasisCommon"
+uuid = "5dac2ff8-6f8b-4298-b7b7-4e0a4f118c1e"
+repo = "https://github.com/BasisResearch/BasisCommon.jl"
+description = "Common base for julia projects"
+
+[packages]
