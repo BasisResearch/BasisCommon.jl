@@ -1,56 +1,69 @@
 name: CI
-
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+  - push
+  - pull_request
 
 jobs:
   test:
     name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ github.event_name }}
     runs-on: ${{ matrix.os }}
-    continue-on-error: ${{ matrix.version == 'nightly' }}
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
         version:
           - '1.6'
           - '1.7'
+          - '1.8'
           - 'nightly'
         os:
           - ubuntu-latest
-          - macos-latest
+          - macOS-latest
           - windows-latest
         arch:
           - x64
 
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - uses: julia-actions/setup-julia@v1
+      - name: Setup Julia
+        uses: julia-actions/setup-julia@v1
         with:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
 
-      - uses: actions/cache@v1
+      - name: Cache Julia packages
+        uses: julia-actions/cache@v1
+
+      - name: Build Julia package
+        uses: julia-actions/julia-buildpkg@v1
+        with:
+          project: BasisCommon
+
+      - name: Clone BasisCommon using GitHub CLI
         env:
-          cache-name: cache-artifacts
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh repo clone git@github.com:BasisResearch/BasisCommon.jl.git
+        shell: bash
+
+      - name: Develop BasisCommon
+        run: |
+          julia --project -e '
+            using Pkg;
+            Pkg.develop(path="./BasisCommon.jl");
+            Pkg.update()'
+        shell: bash
+
+      - name: Run tests
+        uses: julia-actions/julia-runtest@v1
+
+      - name: Process coverage
+        uses: julia-actions/julia-processcoverage@v1
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
         with:
-          path: ~/.julia/artifacts
-          key: ${{ runner.os }}-test-${{ env.cache-name }}-${{ hashFiles('**/Project.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-test-${{ env.cache-name }}-
-            ${{ runner.os }}-test-
-            ${{ runner.os }}-
-
-      - uses: julia-actions/julia-buildpkg@v1
-
-      - uses: julia-actions/julia-runtest@v1
-
-      - uses: julia-actions/julia-processcoverage@v1
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v1
-        with:
-          file: lcov.info 
+          file: lcov.info
