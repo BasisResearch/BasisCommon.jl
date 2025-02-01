@@ -81,6 +81,7 @@ _conv(x::Nothing, ::Type{Maybe{T}}) where T = nothing
 _conv(x::String, ::Type{Maybe{T}}) where T = nothingstring(x) ? nothing : _conv(x, T)
 _conv(x, ::Type{T}) where T = conv(x, T)
 
+
 function conv(j::JSON3.Object, ::Type{T}) where {T}
   # e/g/ (:id, :company_id, :company_external_id, :site_id, :site_external_id, :job_title, :job_id, :status,
   # :first_name, :last_name, :phone, :email, :address, :address_2, :city, :state, :country,
@@ -100,7 +101,9 @@ function conv(j::JSON3.Object, ::Type{T}) where {T}
       try
         push!(fields, _conv(j[f], t))
       catch e
-        error("Error converting field ``$f'' of type ``$t'': $e")
+        val = j[f]
+        actual_type = typeof(val)
+        error("Error converting field ``$f'' of type ``$t'' and value ``$val'' and actual type $actual_type: $e")
         push!(fields, missing)
       end
     elseif t isa Maybe
@@ -113,6 +116,15 @@ function conv(j::JSON3.Object, ::Type{T}) where {T}
   # @show field_dict
   return T(fields...)::T
 end
+
+
+function conv(j::JSON3.Object, ::Type{Union{Nothing, T}}) where {T}
+  if j == nothing
+    return nothing
+  end
+  return conv(j, T)
+end
+
 
 _conv(j::JSON3.Object, ::Type{<:Dict}) = Dict{Any, Any}(k => v for (k, v) in j)
 
