@@ -97,7 +97,12 @@ function conv(j::JSON3.Object, ::Type{T}) where {T}
     # @show f, j[f], t
     # @show f, t
     if f in ks
+      try
         push!(fields, _conv(j[f], t))
+      catch e
+        error("Error converting field $f of type $t: $e")
+        push!(fields, missing)
+      end
     elseif t isa Maybe
         push!(fields, nothing)
     else
