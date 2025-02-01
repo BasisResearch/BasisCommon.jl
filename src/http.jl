@@ -12,19 +12,21 @@ export  safe_request,
         typedparser,
         conv
 
-function retryifhttp(s, e)
-  if e isa HTTP.Exceptions.HTTPError
-    @warn "Exception $e occured. Retrying"
-    # return true
-    return false
+function retryifhttp(_s, e)
+  if e isa HTTP.Exceptions.StatusError
+    # Only retry if the error status code is in a set of transient errors.
+    if e.code in (500, 502, 503, 504)
+      @warn "Transient HTTP error ($e). Retrying..."
+      return true
+    else
+      @warn "HTTP error ($e) is not transient. Not retrying."
+      return false
+    end
   else
-    @warn "Exception $e occured. Not retrying"
+    @warn "Non-HTTP exception ($e) occurred. Not retrying."
     return false
   end
 end
-
-# Extract the body of the response and parse it with `parser`.
-# bodyparse(rs; parser = JSON3.read) = String(rs.body) |> parser
 
 request_parse(http_args...; parser = JSON3.read) = HTTP.request(http_args...) |> rs -> String(rs.body) |> parser
 
