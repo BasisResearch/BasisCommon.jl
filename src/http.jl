@@ -100,7 +100,7 @@ function conv(j::JSON3.Object, ::Type{T}) where {T}
       try
         push!(fields, _conv(j[f], t))
       catch e
-        error("Error converting field $f of type $t: $e")
+        error("Error converting field ``$f'' of type ``$t'': $e")
         push!(fields, missing)
       end
     elseif t isa Maybe
@@ -118,3 +118,8 @@ _conv(j::JSON3.Object, ::Type{<:Dict}) = Dict{Any, Any}(k => v for (k, v) in j)
 
 conv(j::JSON3.Array, ::Type{Vector{T}}) where {T} = map(x -> conv(x, T), j)
 conv(x, ::Type{T}) where {T} = T(x)
+
+
+function conv(j::JSON3.Array, ::Type{T}) where {T}
+  error("Array conversion not implemented for type $T")
+end
