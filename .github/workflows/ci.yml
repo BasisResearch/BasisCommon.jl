@@ -17,6 +17,9 @@ jobs:
         version: [ '1.10.7', '1', 'nightly' ]
         os: [ 'ubuntu-latest', 'macOS-latest', 'windows-latest' ]
         arch: [ 'x64' ]
+      allow_failures:
+        - matrix:
+            version: 'nightly'
 
     steps:
       - name: Checkout repository
