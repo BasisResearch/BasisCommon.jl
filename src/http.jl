@@ -81,6 +81,7 @@ _conv(x::Nothing, ::Type{Maybe{T}}) where T = nothing
 _conv(x::String, ::Type{Maybe{T}}) where T = nothingstring(x) ? nothing : _conv(x, T)
 _conv(x, ::Type{T}) where T = conv(x, T)
 
+conv(x::String, ::Type{String}) = x
 
 function conv(j::JSON3.Object, ::Type{T}) where {T}
   # e/g/ (:id, :company_id, :company_external_id, :site_id, :site_external_id, :job_title, :job_id, :status,
@@ -124,6 +125,7 @@ function conv(j::JSON3.Object, ::Type{Union{Nothing, T}}) where {T}
   end
   return conv(j, T)
 end
+
 
 
 _conv(j::JSON3.Object, ::Type{<:Dict}) = Dict{Any, Any}(k => v for (k, v) in j)
