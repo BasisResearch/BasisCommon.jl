@@ -12,19 +12,21 @@ export  safe_request,
         typedparser,
         conv
 
-function retryifhttp(s, e)
-  if e isa HTTP.Exceptions.HTTPError
-    @warn "Exception $e occured. Retrying"
-    # return true
-    return false
+function retryifhttp(_s, e)
+  if e isa HTTP.Exceptions.StatusError
+    # Only retry if the error status code is in a set of transient errors.
+    if e.code in (500, 502, 503, 504)
+      @warn "Transient HTTP error ($e). Retrying..."
+      return true
+    else
+      @warn "HTTP error ($e) is not transient. Not retrying."
+      return false
+    end
   else
-    @warn "Exception $e occured. Not retrying"
+    @warn "Non-HTTP exception ($e) occurred. Not retrying."
     return false
   end
 end
-
-# Extract the body of the response and parse it with `parser`.
-# bodyparse(rs; parser = JSON3.read) = String(rs.body) |> parser
 
 request_parse(http_args...; parser = JSON3.read) = HTTP.request(http_args...) |> rs -> String(rs.body) |> parser
 
@@ -79,6 +81,8 @@ _conv(x::Nothing, ::Type{Maybe{T}}) where T = nothing
 _conv(x::String, ::Type{Maybe{T}}) where T = nothingstring(x) ? nothing : _conv(x, T)
 _conv(x, ::Type{T}) where T = conv(x, T)
 
+conv(x::String, ::Type{String}) = x
+
 function conv(j::JSON3.Object, ::Type{T}) where {T}
   # e/g/ (:id, :company_id, :company_external_id, :site_id, :site_external_id, :job_title, :job_id, :status,
   # :first_name, :last_name, :phone, :email, :address, :address_2, :city, :state, :country,
@@ -95,7 +99,14 @@ function conv(j::JSON3.Object, ::Type{T}) where {T}
     # @show f, j[f], t
     # @show f, t
     if f in ks
+      try
         push!(fields, _conv(j[f], t))
+      catch e
+        val = j[f]
+        actual_type = typeof(val)
+        error("Error converting field ``$f'' of type ``$t'' and value ``$val'' and actual type $actual_type: $e")
+        push!(fields, missing)
+      end
     elseif t isa Maybe
         push!(fields, nothing)
     else
@@ -107,7 +118,22 @@ function conv(j::JSON3.Object, ::Type{T}) where {T}
   return T(fields...)::T
 end
 
+
+function conv(j::JSON3.Object, ::Type{Union{Nothing, T}}) where {T}
+  if j == nothing
+    return nothing
+  end
+  return conv(j, T)
+end
+
+
+
 _conv(j::JSON3.Object, ::Type{<:Dict}) = Dict{Any, Any}(k => v for (k, v) in j)
 
 conv(j::JSON3.Array, ::Type{Vector{T}}) where {T} = map(x -> conv(x, T), j)
 conv(x, ::Type{T}) where {T} = T(x)
+
+
+function conv(j::JSON3.Array, ::Type{T}) where {T}
+  error("Array conversion not implemented for type $T")
+end
