@@ -22,3 +22,5 @@ end
         @test val == "Hello from ENV"
     end
 end
+
+include("session_tests.jl")
