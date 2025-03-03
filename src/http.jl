@@ -95,15 +95,9 @@ function conv(j::JSON3.Object, ::Type{T}) where {T}
   # :first_name, :last_name, :phone, :email, :address, :address_2, :city, :state, :country,
   # :zipcode, :rating, :contact_preference, :tags, :system_tags, :applied_at, :hired_at,
   # :start_date, :source, :archived_at, :created_at, :updated_at)
-  fn = nothing
-  ft = nothing
-  try
-    fn = fieldnames(T)
-    ft = fieldtypes(T)
-  catch e
-    error("[CONV] Error getting fieldnames and fieldtypes for type $T: $e")
-    rethrow()
-  end
+  fn = fieldnames(T)
+  ft = fieldtypes(T)
+
   # @show T
   ks = keys(j)
   fields = []
@@ -111,21 +105,26 @@ function conv(j::JSON3.Object, ::Type{T}) where {T}
   # @show j.applied_at
   for (f,t)  in zip(fn, ft)
     # @show f, j[f], t
-    # @show f, t
     if f in ks
       try
-        push!(fields, _conv(j[f], t))
+        res = _conv(j[f], t)
+        push!(fields, res)
       catch e
         val = j[f]
         actual_type = typeof(val)
-        error("Error converting field ``$f'' of type ``$t'' and value ``$val'' and actual type $actual_type: $e")
-        push!(fields, missing)
+        println("[CONV] Error converting field ``$f'' of type ``$t'' and value ``$val'' and actual type $actual_type: $e")
+        flush(stdout)
+        throw("[CONV] Error converting field ``$f'' of type ``$t'' and value ``$val'' and actual type $actual_type: $e")
       end
-    elseif t isa Maybe
-        push!(fields, nothing)
-    else
-        error("missing field $f")
-        field_dict[f] = missing
+    else # F is not in ks
+      try
+        res = _conv(nothing, t) # If t is a maybe, this might still be dispatchable
+        push!(fields, res)
+      catch e
+        println("[CONV] Error converting field ``$f'' of type ``$t'' and value ``nothing'': $e")
+        flush(stdout)
+        throw("[CONV] Error converting field ``$f'' of type ``$t'' and value ``nothing'': $e")
+      end
     end
   end
   # @show field_dict
