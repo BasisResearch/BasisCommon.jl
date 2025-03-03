@@ -83,6 +83,13 @@ _conv(x, ::Type{T}) where T = conv(x, T)
 
 conv(x::String, ::Type{String}) = x
 
+function conv(j::JSON3.Object, ::Type{Union{Nothing, T}}) where {T}
+  if j == nothing
+    return nothing
+  end
+  return conv(j, T)
+end
+
 function conv(j::JSON3.Object, ::Type{T}) where {T}
   # e/g/ (:id, :company_id, :company_external_id, :site_id, :site_external_id, :job_title, :job_id, :status,
   # :first_name, :last_name, :phone, :email, :address, :address_2, :city, :state, :country,
@@ -90,6 +97,7 @@ function conv(j::JSON3.Object, ::Type{T}) where {T}
   # :start_date, :source, :archived_at, :created_at, :updated_at)
   fn = fieldnames(T)
   ft = fieldtypes(T)
+
   # @show T
   ks = keys(j)
   fields = []
@@ -97,21 +105,26 @@ function conv(j::JSON3.Object, ::Type{T}) where {T}
   # @show j.applied_at
   for (f,t)  in zip(fn, ft)
     # @show f, j[f], t
-    # @show f, t
     if f in ks
       try
-        push!(fields, _conv(j[f], t))
+        res = _conv(j[f], t)
+        push!(fields, res)
       catch e
         val = j[f]
         actual_type = typeof(val)
-        error("Error converting field ``$f'' of type ``$t'' and value ``$val'' and actual type $actual_type: $e")
-        push!(fields, missing)
+        println("[CONV] Error converting field ``$f'' of type ``$t'' and value ``$val'' and actual type $actual_type: $e, current json: $j")
+        flush(stdout)
+        throw("[CONV] Error converting field ``$f'' of type ``$t'' and value ``$val'' and actual type $actual_type: $e, current json: $j")
       end
-    elseif t isa Maybe
-        push!(fields, nothing)
-    else
-        error("missing field $f")
-        field_dict[f] = missing
+    else # F is not in ks
+      try
+        res = _conv(nothing, t) # If t is a maybe, this might still be dispatchable
+        push!(fields, res)
+      catch e
+        println("[CONV] Error converting field ``$f'' of type ``$t'' and value ``nothing'': $e, current json: $j")
+        flush(stdout)
+        throw("[CONV] Error converting field ``$f'' of type ``$t'' and value ``nothing'': $e, current json: $j")
+      end
     end
   end
   # @show field_dict
@@ -119,12 +132,6 @@ function conv(j::JSON3.Object, ::Type{T}) where {T}
 end
 
 
-function conv(j::JSON3.Object, ::Type{Union{Nothing, T}}) where {T}
-  if j == nothing
-    return nothing
-  end
-  return conv(j, T)
-end
 
 
 
