@@ -112,18 +112,18 @@ function conv(j::JSON3.Object, ::Type{T}) where {T}
       catch e
         val = j[f]
         actual_type = typeof(val)
-        println("[CONV] Error converting field ``$f'' of type ``$t'' and value ``$val'' and actual type $actual_type: $e")
+        println("[CONV] Error converting field ``$f'' of type ``$t'' and value ``$val'' and actual type $actual_type: $e, current json: $j")
         flush(stdout)
-        throw("[CONV] Error converting field ``$f'' of type ``$t'' and value ``$val'' and actual type $actual_type: $e")
+        throw("[CONV] Error converting field ``$f'' of type ``$t'' and value ``$val'' and actual type $actual_type: $e, current json: $j")
       end
     else # F is not in ks
       try
         res = _conv(nothing, t) # If t is a maybe, this might still be dispatchable
         push!(fields, res)
       catch e
-        println("[CONV] Error converting field ``$f'' of type ``$t'' and value ``nothing'': $e")
+        println("[CONV] Error converting field ``$f'' of type ``$t'' and value ``nothing'': $e, current json: $j")
         flush(stdout)
-        throw("[CONV] Error converting field ``$f'' of type ``$t'' and value ``nothing'': $e")
+        throw("[CONV] Error converting field ``$f'' of type ``$t'' and value ``nothing'': $e, current json: $j")
       end
     end
   end
