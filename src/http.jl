@@ -101,7 +101,7 @@ function conv(j::JSON3.Object, ::Type{T}) where {T}
     fn = fieldnames(T)
     ft = fieldtypes(T)
   catch e
-    error("Error getting fieldnames and fieldtypes for type $T: $e")
+    error("[CONV] Error getting fieldnames and fieldtypes for type $T: $e")
     rethrow()
   end
   # @show T
