@@ -83,13 +83,27 @@ _conv(x, ::Type{T}) where T = conv(x, T)
 
 conv(x::String, ::Type{String}) = x
 
+function conv(j::JSON3.Object, ::Type{Union{Nothing, T}}) where {T}
+  if j == nothing
+    return nothing
+  end
+  return conv(j, T)
+end
+
 function conv(j::JSON3.Object, ::Type{T}) where {T}
   # e/g/ (:id, :company_id, :company_external_id, :site_id, :site_external_id, :job_title, :job_id, :status,
   # :first_name, :last_name, :phone, :email, :address, :address_2, :city, :state, :country,
   # :zipcode, :rating, :contact_preference, :tags, :system_tags, :applied_at, :hired_at,
   # :start_date, :source, :archived_at, :created_at, :updated_at)
-  fn = fieldnames(T)
-  ft = fieldtypes(T)
+  fn = nothing
+  ft = nothing
+  try
+    fn = fieldnames(T)
+    ft = fieldtypes(T)
+  catch e
+    error("Error getting fieldnames and fieldtypes for type $T: $e")
+    rethrow()
+  end
   # @show T
   ks = keys(j)
   fields = []
@@ -119,12 +133,6 @@ function conv(j::JSON3.Object, ::Type{T}) where {T}
 end
 
 
-function conv(j::JSON3.Object, ::Type{Union{Nothing, T}}) where {T}
-  if j == nothing
-    return nothing
-  end
-  return conv(j, T)
-end
 
 
 
