@@ -14,12 +14,13 @@ export  safe_request,
 
 function retryifhttp(_s, e)
   if e isa HTTP.Exceptions.StatusError
+    status = hasproperty(e, :status) ? e.status : e.code
     # Only retry if the error status code is in a set of transient errors.
-    if e.code in (500, 502, 503, 504)
-      @warn "Transient HTTP error ($e). Retrying..."
+    if status in (500, 502, 503, 504)
+      @warn "Transient HTTP error (status=$(status)). Retrying..."
       return true
     else
-      @warn "HTTP error ($e) is not transient. Not retrying."
+      @warn "HTTP error (status=$(status)) is not transient. Not retrying."
       return false
     end
   else
@@ -43,23 +44,19 @@ typedparser(::Type{T}) where {T} = json_string -> typedjsonread(T, json_string)
 matches_schema(x, schema) = isnothing(JSONSchema.validate(schema, x)) ? true : false
 
 ## Conversion
+const RDATE_FORMATS = (
+  dateformat"yyyy-mm-ddTHH:MM:SS-HH:MM",
+  dateformat"yyyy-mm-ddTHH:MM:SSZ",
+  dateformat"yyyy-mm-ddTHH:MM:SS-HHMM",  # Added just in case the format without the colon in the timezone offset
+  dateformat"yyyy-mm-ddTHH:MM:SS+HH:MM", # Added for 2023-02-23T22:35:31+06:00
+  dateformat"yyyy-mm-ddTHH:MM:SS+HHMM",
+)
+
 """
 DateTime in format the Rippling ATS API outputs, e.g. "2022-11-18T21:29:15Z"
 """
 function rDateTime(x::String)
-  formats = [
-    dateformat"yyyy-mm-ddTHH:MM:SS-HH:MM",
-    dateformat"yyyy-mm-ddTHH:MM:SSZ",
-    dateformat"yyyy-mm-ddTHH:MM:SS-HHMM"  # Added just in case the format without the colon in the timezone offset
-  ]
-
-  # Add 2023-02-23T22:35:31+06:00 
-  formats = vcat(formats, [
-    dateformat"yyyy-mm-ddTHH:MM:SS+HH:MM",
-    dateformat"yyyy-mm-ddTHH:MM:SS+HHMM"
-  ])
-
-  for fmt in formats
+  for fmt in RDATE_FORMATS
     try
       return DateTime(x, fmt)
     catch
@@ -83,39 +80,48 @@ _conv(x, ::Type{T}) where T = conv(x, T)
 
 conv(x::String, ::Type{String}) = x
 
-function conv(j::JSON3.Object, ::Type{T}) where {T}
+@generated function conv(j::JSON3.Object, ::Type{T}) where {T}
   # e/g/ (:id, :company_id, :company_external_id, :site_id, :site_external_id, :job_title, :job_id, :status,
   # :first_name, :last_name, :phone, :email, :address, :address_2, :city, :state, :country,
   # :zipcode, :rating, :contact_preference, :tags, :system_tags, :applied_at, :hired_at,
   # :start_date, :source, :archived_at, :created_at, :updated_at)
   fn = fieldnames(T)
   ft = fieldtypes(T)
-  # @show T
-  ks = keys(j)
-  fields = []
-  # @show j.updated_at
-  # @show j.applied_at
-  for (f,t)  in zip(fn, ft)
-    # @show f, j[f], t
-    # @show f, t
-    if f in ks
-      try
-        push!(fields, _conv(j[f], t))
-      catch e
-        val = j[f]
-        actual_type = typeof(val)
-        error("Error converting field ``$f'' of type ``$t'' and value ``$val'' and actual type $actual_type: $e")
-        push!(fields, missing)
+  args = Vector{Any}(undef, length(fn))
+  for i in eachindex(fn, ft)
+    f = fn[i]
+    t = ft[i]
+    f_q = QuoteNode(f)
+    f_str = string(f)
+    t_str = string(t)
+    err_msg = :(string("Error converting field ``", $f_str,
+                       "'' of type ``", $t_str,
+                       "'' and value ``", val,
+                       "'' and actual type ", actual_type, ": ", e))
+    convert_expr = quote
+      let val = j[$f_q]
+        try
+          _conv(val, $t)
+        catch e
+          actual_type = typeof(val)
+          error($err_msg)
+        end
       end
-    elseif t isa Maybe
-        push!(fields, nothing)
+    end
+    missing_msg = "missing field $f"
+    if t isa Maybe
+      args[i] = :(haskey(j, $f_q) ? $convert_expr : nothing)
     else
-        error("missing field $f")
-        field_dict[f] = missing
+      args[i] = quote
+        if haskey(j, $f_q)
+          $convert_expr
+        else
+          error($missing_msg)
+        end
+      end
     end
   end
-  # @show field_dict
-  return T(fields...)::T
+  return :( $(T)($(args...))::T )
 end
 
 
@@ -130,7 +136,13 @@ end
 
 _conv(j::JSON3.Object, ::Type{<:Dict}) = Dict{Any, Any}(k => v for (k, v) in j)
 
-conv(j::JSON3.Array, ::Type{Vector{T}}) where {T} = map(x -> conv(x, T), j)
+function conv(j::JSON3.Array, ::Type{Vector{T}}) where {T}
+  out = Vector{T}(undef, length(j))
+  @inbounds for i in eachindex(j)
+    out[i] = conv(j[i], T)
+  end
+  return out
+end
 conv(x, ::Type{T}) where {T} = T(x)
 
 
